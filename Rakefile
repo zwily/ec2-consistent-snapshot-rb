@@ -15,20 +15,15 @@ Jeweler::Tasks.new do |gem|
   gem.name = "ec2-consistent-snapshot-rb"
   gem.homepage = "http://github.com/zwily/ec2-consistent-snapshot-rb"
   gem.license = "MIT"
-  gem.summary = %Q{TODO: one-line summary of your gem}
-  gem.description = %Q{TODO: longer description of your gem}
+  gem.summary = %Q{Takes EBS snapshots while locking MySQL and freezing XFS}
+  gem.description = %Q{Ported from ec2-consistent-snapshot (http://alestic.com/2009/09/ec2-consistent-snapshot)}
   gem.email = "zach@zwily.com"
   gem.authors = ["Zach Wily"]
-  # Include your dependencies below. Runtime dependencies are required when using your gem,
-  # and development dependencies are only needed for development (ie running rake tasks, tests, etc)
-  #  gem.add_runtime_dependency 'jabber4r', '> 0.1'
-  #  gem.add_development_dependency 'rspec', '> 1.2.3'
 end
 Jeweler::RubygemsDotOrgTasks.new
 
 require 'rake/testtask'
 Rake::TestTask.new(:test) do |test|
-  test.libs << 'lib' << 'test'
   test.pattern = 'test/**/test_*.rb'
   test.verbose = true
 end
@@ -49,5 +44,4 @@ Rake::RDocTask.new do |rdoc|
   rdoc.rdoc_dir = 'rdoc'
   rdoc.title = "ec2-consistent-snapshot-rb #{version}"
   rdoc.rdoc_files.include('README*')
-  rdoc.rdoc_files.include('lib/**/*.rb')
 end

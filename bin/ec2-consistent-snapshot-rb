@@ -1,0 +1,105 @@
+#!/usr/bin/env ruby
+
+# This script was largely ported from ec2-consistent-snapshot written
+# by Eric Hammond: http://alestic.com/2009/09/ec2-consistent-snapshot
+# A bunch of his features aren't ported over yet... just the stuff I needed.
+
+require 'rubygems'
+require 'right_aws'
+require 'optparse'
+
+$opts = {
+  :aws_access_key => ENV["AWS_ACCESS_KEY_ID"],
+  :aws_secret_access_key => ENV["AWS_SECRET_ACCESS_KEY"],
+  :aws_region => 'us-east-1',
+  
+  :description => '',
+  :xfs_filesystem => nil,
+  
+  :mysql => false,
+  :mysql_username => 'root',
+  :mysql_password => nil,
+  :mysql_host => '127.0.0.1',
+  :mysql_master_status_file => nil,
+  :mysql_slave_status_file => nil,
+}
+
+OptionParser.new do |o|
+  o.on("--aws-access-key ACCESS_KEY", "AWS Access Key") {|v| $opts[:aws_access_key] = v }
+  o.on("--aws-secret-access-key SECRET_KEY", "AWS Secret Access Key") {|v| $opts[:aws_secret_access_key] = v }
+  o.on("--aws-region REGION", "AWS Region") {|v| $opts[:aws_region] = v }
+  o.on("--description STRING", "The description for the snapshot") {|v| $opts[:description] = v }
+  o.on("--xfs-filesystem MOUNTPOINT", "Filesystem to be frozen during snapshot") {|v| $opts[:xfs_filesystem] = v }
+  o.on("--mysql", "Indicates that the volume has mysql") {|v| $opts[:mysql] = v }
+  o.on("--mysql-username USERNAME", "MySQL user to connect as") {|v| $opts[:mysql_username] = v }
+  o.on("--mysql-password PASSWORD", "MySQL password") {|v| $opts[:mysql_password] = v }
+  o.on("--mysql-host HOST", "MySQL host") {|v| $opts[:mysql_host] = v }
+  o.on("--mysql-master-status-file FILENAME", "File to store in snapshot with master status") {|v| $opts[:mysql_master_status_file] = v }
+  o.on("--mysql-slave-status-file FILENAME", "File to store in snapshot with slave status") {|v| $opts[:mysql_slave_status_file] = v }
+end.parse!
+
+if $opts[:aws_access_key].nil? || $opts[:aws_secret_access_key].nil?
+  puts "You must specify your Amazon credentials via --aws-access-key and --aws-secret_access-key"
+  exit 1
+end
+
+if ARGV.empty?
+  puts "You must provide at least one volume id to snapshot"
+  exit 1
+end
+volume_ids = ARGV
+
+def mysql_locked(&block)
+  mysql = nil
+  
+  if $opts[:mysql]
+    require 'mysql'
+    mysql = Mysql::new($opts[:mysql_host], $opts[:mysql_username], $opts[:mysql_password])
+    mysql.query("SET SQL_LOG_BIN=0")
+    mysql.query("FLUSH LOCAL TABLES")
+    mysql.query("FLUSH LOCAL TABLES WITH READ LOCK")
+    
+    def query_result_string(mysql, query)
+      result = mysql.query(query)
+      string = ""
+      if result.num_rows() > 0
+        result.fetch_row.each_with_index do |value, i|
+          string << "#{result.fetch_field_direct(i).name}: #{value}\n"
+        end
+      end
+      string
+    end
+    
+    if $opts[:mysql_slave_status_file]
+      File.open($opts[:mysql_slave_status_file], "w").puts query_result_string(mysql, "SHOW SLAVE STATUS")
+    end
+    
+    if $opts[:mysql_master_status_file]
+      File.open($opts[:mysql_master_status_file], "w").puts query_result_string(mysql, "SHOW MASTER STATUS")
+    end
+    
+    mysql.query("SET SQL_LOG_BIN=1")
+  end
+  
+  yield
+  
+  mysql.real_query("UNLOCK TABLES") if mysql
+end
+
+def xfs_frozen(&block)
+  system('xfs_freeze', '-f', $opts[:xfs_filesystem]) if $opts[:xfs_filesystem]
+  yield
+  system('xfs_freeze', '-u', $opts[:xfs_filesystem]) if $opts[:xfs_filesystem]
+end
+
+begin
+  mysql_locked() do
+    xfs_frozen() do
+      ec2 = RightAws::Ec2.new($opts[:aws_access_key], $opts[:aws_secret_access_key], :region => $opts[:aws_region])
+      volume_ids.each do |volume_id|
+        snapshot = ec2.create_snapshot(volume_id, $opts[:description])
+        puts "#{volume_id}: #{snapshot[:aws_id]}"
+      end
+    end
+  end
+end
