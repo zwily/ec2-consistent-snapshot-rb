@@ -1,6 +1,12 @@
 = ec2-consistent-snapshot-rb
 
-Description goes here.
+This is a ruby port of the very useful ec2-consistent-snapshot script by Eric Hammond
+(http://alestic.com/2009/09/ec2-consistent-snapshot). It does not include all the features
+yet, but does include:
+
+* Freezing an XFS filesystem while snapshots are taken
+* Flushing and locking MySQL tables during snapshotting
+* Dumping master and slave information so that the snapshot can be used to init a new slave
 
 == Contributing to ec2-consistent-snapshot-rb
  

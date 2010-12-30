@@ -31,9 +31,9 @@ OptionParser.new do |o|
   o.on("--description STRING", "The description for the snapshot") {|v| $opts[:description] = v }
   o.on("--xfs-filesystem MOUNTPOINT", "Filesystem to be frozen during snapshot") {|v| $opts[:xfs_filesystem] = v }
   o.on("--mysql", "Indicates that the volume has mysql") {|v| $opts[:mysql] = v }
-  o.on("--mysql-username USERNAME", "MySQL user to connect as") {|v| $opts[:mysql_username] = v }
-  o.on("--mysql-password PASSWORD", "MySQL password") {|v| $opts[:mysql_password] = v }
-  o.on("--mysql-host HOST", "MySQL host") {|v| $opts[:mysql_host] = v }
+  o.on("--mysql-username USERNAME", "MySQL user (default: root)") {|v| $opts[:mysql_username] = v }
+  o.on("--mysql-password PASSWORD", "MySQL password (default: none)") {|v| $opts[:mysql_password] = v }
+  o.on("--mysql-host HOST", "MySQL host (default: 127.0.0.1)") {|v| $opts[:mysql_host] = v }
   o.on("--mysql-master-status-file FILENAME", "File to store in snapshot with master status") {|v| $opts[:mysql_master_status_file] = v }
   o.on("--mysql-slave-status-file FILENAME", "File to store in snapshot with slave status") {|v| $opts[:mysql_slave_status_file] = v }
 end.parse!
@@ -81,15 +81,21 @@ def mysql_locked(&block)
     mysql.query("SET SQL_LOG_BIN=1")
   end
   
-  yield
-  
-  mysql.real_query("UNLOCK TABLES") if mysql
+  begin
+    yield
+  ensure
+    mysql.real_query("UNLOCK TABLES") if mysql
+  end
 end
 
 def xfs_frozen(&block)
   system('xfs_freeze', '-f', $opts[:xfs_filesystem]) if $opts[:xfs_filesystem]
-  yield
-  system('xfs_freeze', '-u', $opts[:xfs_filesystem]) if $opts[:xfs_filesystem]
+  
+  begin
+    yield
+  ensure
+    system('xfs_freeze', '-u', $opts[:xfs_filesystem]) if $opts[:xfs_filesystem]
+  end
 end
 
 begin
