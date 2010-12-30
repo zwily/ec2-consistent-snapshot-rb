@@ -27,6 +27,7 @@ Gem::Specification.new do |s|
     "Rakefile",
     "VERSION",
     "bin/ec2-consistent-snapshot-rb",
+    "ec2-consistent-snapshot-rb.gemspec",
     "lib/.dummy",
     "test/helper.rb",
     "test/test_ec2-consistent-snapshot-rb.rb"
