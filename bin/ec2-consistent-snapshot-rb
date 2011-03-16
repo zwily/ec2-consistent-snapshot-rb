@@ -71,11 +71,11 @@ def mysql_locked(&block)
     end
     
     if $opts[:mysql_slave_status_file]
-      File.open($opts[:mysql_slave_status_file], "w").puts query_result_string(mysql, "SHOW SLAVE STATUS")
+      File.open($opts[:mysql_slave_status_file], "w") {|f| f.puts query_result_string(mysql, "SHOW SLAVE STATUS") }
     end
     
     if $opts[:mysql_master_status_file]
-      File.open($opts[:mysql_master_status_file], "w").puts query_result_string(mysql, "SHOW MASTER STATUS")
+      File.open($opts[:mysql_master_status_file], "w") {|f| f.puts query_result_string(mysql, "SHOW MASTER STATUS") }
     end
     
     mysql.query("SET SQL_LOG_BIN=1")
